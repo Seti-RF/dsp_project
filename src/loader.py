@@ -8,10 +8,18 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 def load_patient(patient_id, data_path=None):
     """
-    Laad alle signalen voor een patient.
+    Load all available signals and labels for one patient.
 
-    patient_id: bv. "p000188"
-    data_path: pad naar de data map
+    Args:
+        patient_id: Patient identifier, for example "p000188".
+        data_path: Optional path to the dataset root. When omitted, the
+            project-level data directory is used.
+
+    Returns:
+        A tuple containing ECG, PPG, ABP and labels arrays.
+
+    Raises:
+        FileNotFoundError: If one of the patient files is missing.
     """
     data_dir = Path(data_path) if data_path is not None else PROJECT_ROOT / "data"
 
