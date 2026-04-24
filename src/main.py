@@ -5,7 +5,7 @@ from plotter import plot_synchronized_ecg_ppg
 
 
 PATIENT_ID = "p000188"
-SEGMENT_INDEX = 0
+SEGMENT_INDEX = 23
 SAMPLING_RATE_HZ = 125
 
 if __name__ == "__main__":
@@ -24,4 +24,5 @@ if __name__ == "__main__":
         sampling_rate_hz=SAMPLING_RATE_HZ,
     )
     figure.canvas.manager.set_window_title(f"{PATIENT_ID} ECG/PPG segment {SEGMENT_INDEX}")
+
     plt.show()
