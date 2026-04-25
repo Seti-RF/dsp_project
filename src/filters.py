@@ -19,10 +19,10 @@ class ButterworthBandpassSettings:
     sampling_rate_hz: float = 125.0
     order: int = 4
 
-# Based on online research
+
 ECG_BUTTERWORTH_SETTINGS = ButterworthBandpassSettings(
     low_cut_hz=0.5,
-    high_cut_hz= 20.0
+    high_cut_hz=20.0,
 )
 
 PPG_BUTTERWORTH_SETTINGS = ButterworthBandpassSettings(
@@ -55,7 +55,7 @@ def butterworth_bandpass(data, settings):
 
 def preprocess_ecg(ecg, sampling_rate_hz=125.0):
     """
-    Filter ECG with a 0.5-35 Hz Butterworth bandpass.
+    Filter ECG with a 0.5-20 Hz Butterworth bandpass.
 
     This removes baseline wander below 0.5 Hz and attenuates high-frequency
     noise above the ECG analysis bandwidth.
@@ -71,7 +71,7 @@ def preprocess_ecg(ecg, sampling_rate_hz=125.0):
 
 def preprocess_ppg(ppg, sampling_rate_hz=125.0):
     """
-    Filter PPG with a 0.3-8 Hz Butterworth bandpass.
+    Filter PPG with a 0.5-5 Hz Butterworth bandpass.
 
     This removes slow baseline drift and attenuates high-frequency/motion noise
     outside the usual pulse waveform bandwidth.

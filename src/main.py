@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 
+from artifacts import find_artifact_segments
 from filters import preprocess_ecg, preprocess_ppg
 from loader import load_patient
 from plotter import FrequencyDomainPlotter, plot_synchronized_ecg_ppg
@@ -15,6 +16,11 @@ if __name__ == "__main__":
     print(f"ABP vorm: {abp.shape}")
     print(f"Labels vorm: {labels.shape}")
     print(f"Eerste label [SBP, DBP]: {labels[SEGMENT_INDEX]}")
+
+    bad_ecg_segments = find_artifact_segments(ecg)
+    bad_ppg_segments = find_artifact_segments(ppg)
+    print(f"ECG segmenten met mogelijke bewegingsartefacten: {bad_ecg_segments}")
+    print(f"PPG segmenten met mogelijke bewegingsartefacten: {bad_ppg_segments}")
 
     figure = plot_synchronized_ecg_ppg(
         ecg=ecg,
