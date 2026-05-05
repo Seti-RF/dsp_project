@@ -196,6 +196,63 @@ def plot_synchronized_ecg_ppg(
     return figure
 
 
+def plot_detected_peaks(
+    signal_data,
+    peaks,
+    signal_name,
+    patient_id,
+    segment_index=0,
+    sampling_rate_hz=125,
+    output_path=None,
+):
+    """
+    Plot one signal segment with detected peaks marked.
+
+    Args:
+        signal_data: Signal array with shape (segments, samples).
+        peaks: Detected peak sample indexes for the selected segment.
+        signal_name: Signal label, for example "ECG" or "PPG".
+        patient_id: Patient identifier, for example "p000188".
+        segment_index: Segment number to plot.
+        sampling_rate_hz: Sampling rate used to convert samples to seconds.
+        output_path: Optional file path where the plot is saved.
+
+    Returns:
+        The matplotlib Figure object containing the peak plot.
+    """
+    if segment_index < 0 or segment_index >= signal_data.shape[0]:
+        raise IndexError(
+            f"segment_index {segment_index} is outside available range 0-{signal_data.shape[0] - 1}"
+        )
+
+    signal_segment = signal_data[segment_index]
+    peaks = np.asarray(peaks, dtype=int)
+    time_seconds = np.arange(signal_segment.shape[0]) / sampling_rate_hz
+
+    figure, axis = plt.subplots(figsize=(12, 4), constrained_layout=True)
+    axis.plot(time_seconds, signal_segment, color="#1f77b4", linewidth=0.9)
+    axis.scatter(
+        time_seconds[peaks],
+        signal_segment[peaks],
+        color="#d62728",
+        s=28,
+        label="Detected peaks",
+        zorder=3,
+    )
+    axis.set_title(f"{patient_id} - detected {signal_name} peaks segment {segment_index}")
+    axis.set_xlabel("Time (seconds)")
+    axis.set_ylabel(f"{signal_name} amplitude")
+    axis.grid(True, alpha=0.3)
+    axis.legend()
+
+    if output_path is not None:
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        figure.savefig(output_file, dpi=150)
+
+    return figure
+
+
 def plot_pre_post_filter(
     raw_signal,
     filtered_signal,

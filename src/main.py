@@ -3,7 +3,13 @@ import matplotlib.pyplot as plt
 from artifacts import find_artifact_segments
 from filters import preprocess_ecg, preprocess_ppg
 from loader import load_patient
-from plotter import FrequencyDomainPlotter, plot_synchronized_ecg_ppg
+from peaks import (
+    calculate_heart_rate_from_peaks,
+    compare_heart_rates,
+    detect_ecg_r_peaks,
+    detect_ppg_peaks,
+)
+from plotter import FrequencyDomainPlotter, plot_detected_peaks, plot_synchronized_ecg_ppg
 
 PATIENT_ID = "p000188"
 SEGMENT_INDEX = 23
@@ -58,6 +64,30 @@ if __name__ == "__main__":
     filtered_ecg = preprocess_ecg(ecg, sampling_rate_hz=SAMPLING_RATE_HZ)
     filtered_ppg = preprocess_ppg(ppg, sampling_rate_hz=SAMPLING_RATE_HZ)
 
+    ecg_r_peaks = detect_ecg_r_peaks(
+        filtered_ecg[SEGMENT_INDEX],
+        sampling_rate_hz=SAMPLING_RATE_HZ,
+    )
+    ppg_peaks = detect_ppg_peaks(
+        filtered_ppg[SEGMENT_INDEX],
+        sampling_rate_hz=SAMPLING_RATE_HZ,
+    )
+    ecg_heart_rate = calculate_heart_rate_from_peaks(
+        ecg_r_peaks,
+        sampling_rate_hz=SAMPLING_RATE_HZ,
+    )
+    ppg_heart_rate = calculate_heart_rate_from_peaks(
+        ppg_peaks,
+        sampling_rate_hz=SAMPLING_RATE_HZ,
+    )
+    heart_rate_difference = compare_heart_rates(ecg_heart_rate, ppg_heart_rate)
+
+    print(f"ECG R-peaks gevonden: {ecg_heart_rate.peak_count}")
+    print(f"PPG systolische pieken gevonden: {ppg_heart_rate.peak_count}")
+    print(f"ECG hartslag: {ecg_heart_rate.beats_per_minute:.2f} bpm")
+    print(f"PPG hartslag: {ppg_heart_rate.beats_per_minute:.2f} bpm")
+    print(f"Verschil ECG/PPG hartslag: {heart_rate_difference:.2f} bpm")
+
     filtered_figure = plot_synchronized_ecg_ppg(
         ecg=filtered_ecg,
         ppg=filtered_ppg,
@@ -89,6 +119,30 @@ if __name__ == "__main__":
     )
     filtered_ppg_frequency_figure.canvas.manager.set_window_title(
         f"{PATIENT_ID} filtered PPG frequency spectrum segment {SEGMENT_INDEX}"
+    )
+
+    ecg_peak_figure = plot_detected_peaks(
+        signal_data=filtered_ecg,
+        peaks=ecg_r_peaks,
+        signal_name="ECG R",
+        patient_id=PATIENT_ID,
+        segment_index=SEGMENT_INDEX,
+        sampling_rate_hz=SAMPLING_RATE_HZ,
+    )
+    ecg_peak_figure.canvas.manager.set_window_title(
+        f"{PATIENT_ID} ECG R-peaks segment {SEGMENT_INDEX}"
+    )
+
+    ppg_peak_figure = plot_detected_peaks(
+        signal_data=filtered_ppg,
+        peaks=ppg_peaks,
+        signal_name="PPG systolic",
+        patient_id=PATIENT_ID,
+        segment_index=SEGMENT_INDEX,
+        sampling_rate_hz=SAMPLING_RATE_HZ,
+    )
+    ppg_peak_figure.canvas.manager.set_window_title(
+        f"{PATIENT_ID} PPG peaks segment {SEGMENT_INDEX}"
     )
 
     plt.show()
