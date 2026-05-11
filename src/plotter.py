@@ -313,3 +313,56 @@ def plot_pre_post_filter(
         figure.savefig(output_file, dpi=150)
 
     return figure
+
+
+def plot_sqi_per_segment(fusion_results, patient_id, output_path=None):
+    """
+    Plot ECG and PPG SQI scores for all segments.
+    """
+    segment_indexes = np.asarray([result.segment_index for result in fusion_results])
+    ecg_sqi = np.asarray([result.ecg_sqi for result in fusion_results])
+    ppg_sqi = np.asarray([result.ppg_sqi for result in fusion_results])
+
+    figure, axis = plt.subplots(figsize=(12, 4), constrained_layout=True)
+    axis.plot(segment_indexes, ecg_sqi, marker="o", color="#1f77b4", label="ECG SQI")
+    axis.plot(segment_indexes, ppg_sqi, marker="o", color="#d62728", label="PPG SQI")
+    axis.set_title(f"{patient_id} - signal quality per segment")
+    axis.set_xlabel("Segment index")
+    axis.set_ylabel("SQI score")
+    axis.set_ylim(0, 1.05)
+    axis.grid(True, alpha=0.3)
+    axis.legend()
+
+    if output_path is not None:
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        figure.savefig(output_file, dpi=150)
+
+    return figure
+
+
+def plot_heart_rates_per_segment(fusion_results, patient_id, output_path=None):
+    """
+    Plot ECG HR, PPG HR and fused HR for all segments.
+    """
+    segment_indexes = np.asarray([result.segment_index for result in fusion_results])
+    ecg_hr = np.asarray([result.ecg_heart_rate_bpm for result in fusion_results])
+    ppg_hr = np.asarray([result.ppg_heart_rate_bpm for result in fusion_results])
+    fused_hr = np.asarray([result.fused_heart_rate_bpm for result in fusion_results])
+
+    figure, axis = plt.subplots(figsize=(12, 4), constrained_layout=True)
+    axis.plot(segment_indexes, ecg_hr, marker="o", color="#1f77b4", label="ECG HR")
+    axis.plot(segment_indexes, ppg_hr, marker="o", color="#d62728", label="PPG HR")
+    axis.plot(segment_indexes, fused_hr, marker="o", color="#2ca02c", label="Fused HR")
+    axis.set_title(f"{patient_id} - heart rate fusion per segment")
+    axis.set_xlabel("Segment index")
+    axis.set_ylabel("Heart rate (bpm)")
+    axis.grid(True, alpha=0.3)
+    axis.legend()
+
+    if output_path is not None:
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        figure.savefig(output_file, dpi=150)
+
+    return figure
