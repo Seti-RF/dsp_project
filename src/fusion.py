@@ -6,6 +6,7 @@ import numpy as np
 
 from peaks import (
     calculate_heart_rate_from_peaks,
+    compare_heart_rates,
     detect_ecg_r_peaks,
     detect_ppg_peaks,
 )
@@ -23,6 +24,7 @@ class SegmentFusionResult:
     ppg_peak_count: int
     ecg_heart_rate_bpm: float
     ppg_heart_rate_bpm: float
+    heart_rate_difference_bpm: float
     ecg_sqi: float
     ppg_sqi: float
     ecg_weight: float
@@ -102,6 +104,7 @@ def analyze_segment_quality_and_fusion(
         ppg_peak_count=ppg_heart_rate.peak_count,
         ecg_heart_rate_bpm=ecg_heart_rate.beats_per_minute,
         ppg_heart_rate_bpm=ppg_heart_rate.beats_per_minute,
+        heart_rate_difference_bpm=compare_heart_rates(ecg_heart_rate, ppg_heart_rate),
         ecg_sqi=ecg_sqi.overall_score,
         ppg_sqi=ppg_sqi.overall_score,
         ecg_weight=ecg_weight,
@@ -176,6 +179,7 @@ def save_fusion_results_csv(results, output_path):
                 "ppg_peak_count",
                 "ecg_heart_rate_bpm",
                 "ppg_heart_rate_bpm",
+                "heart_rate_difference_bpm",
                 "ecg_sqi",
                 "ppg_sqi",
                 "ecg_weight",
@@ -191,6 +195,7 @@ def save_fusion_results_csv(results, output_path):
                     result.ppg_peak_count,
                     _format_float(result.ecg_heart_rate_bpm),
                     _format_float(result.ppg_heart_rate_bpm),
+                    _format_float(result.heart_rate_difference_bpm),
                     _format_float(result.ecg_sqi),
                     _format_float(result.ppg_sqi),
                     _format_float(result.ecg_weight),
