@@ -59,6 +59,44 @@ def run_app_analysis(patient_id, data_path=None, sampling_rate_hz=125):
     load data, preprocess, calculate HR/SQI/fusion and calculate HRV.
     """
     ecg, ppg, _, _ = load_patient(patient_id, data_path=data_path)
+    return run_app_analysis_from_arrays(
+        patient_id=patient_id,
+        ecg=ecg,
+        ppg=ppg,
+        sampling_rate_hz=sampling_rate_hz,
+    )
+
+
+def run_app_analysis_from_files(ecg_path, ppg_path, sampling_rate_hz=125):
+    """
+    Run the app pipeline from two user-selected ECG and PPG .npy files.
+    """
+    ecg_file = Path(ecg_path)
+    ppg_file = Path(ppg_path)
+    ecg = np.load(ecg_file)
+    ppg = np.load(ppg_file)
+    patient_id = f"{ecg_file.stem} / {ppg_file.stem}"
+    return run_app_analysis_from_arrays(
+        patient_id=patient_id,
+        ecg=ecg,
+        ppg=ppg,
+        sampling_rate_hz=sampling_rate_hz,
+    )
+
+
+def run_app_analysis_from_arrays(patient_id, ecg, ppg, sampling_rate_hz=125):
+    """
+    Run the final Roadmap v2 backend pipeline for loaded ECG and PPG arrays.
+    """
+    ecg = _normalize_signal_array(ecg, "ECG")
+    ppg = _normalize_signal_array(ppg, "PPG")
+
+    if ecg.shape != ppg.shape:
+        raise ValueError(
+            f"ECG and PPG arrays must have the same shape. "
+            f"Got ECG {ecg.shape} and PPG {ppg.shape}."
+        )
+
     filtered_ecg = preprocess_ecg(ecg, sampling_rate_hz=sampling_rate_hz)
     filtered_ppg = preprocess_ppg(ppg, sampling_rate_hz=sampling_rate_hz)
 
@@ -170,6 +208,17 @@ def _ids_from_folder(folder, suffix):
 
 def _project_root():
     return Path(__file__).resolve().parents[1]
+
+
+def _normalize_signal_array(signal, signal_name):
+    signal = np.asarray(signal)
+    if signal.ndim == 1:
+        return signal.reshape(1, -1)
+    if signal.ndim != 2:
+        raise ValueError(
+            f"{signal_name} array must be 1D or 2D. Got shape {signal.shape}."
+        )
+    return signal
 
 
 def _format_float(value):
