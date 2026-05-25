@@ -25,6 +25,8 @@ def calculate_ecg_sqi(ecg_segment, r_peaks, sampling_rate_hz=125):
     - R-R interval regularity.
     - R-peak amplitude stability.
     - Noise level compared with the signal amplitude.
+
+    NOTE: THESE MEASURES WERE FOUND ONLINE BUT WORK PRETTY WELL
     """
     return _calculate_peak_based_sqi(
         signal_segment=ecg_segment,
@@ -42,6 +44,8 @@ def calculate_ppg_sqi(ppg_segment, systolic_peaks, sampling_rate_hz=125):
     - Pulse interval regularity.
     - Systolic peak amplitude stability.
     - Noise level compared with the pulse waveform amplitude.
+
+    NOTE: THESE MEASURES WERE FOUND ONLINE BUT WORK PRETTY WELL
     """
     return _calculate_peak_based_sqi(
         signal_segment=ppg_segment,

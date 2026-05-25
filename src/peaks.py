@@ -19,17 +19,16 @@ class HeartRateResult:
 
 def detect_ecg_r_peaks(ecg_segment, sampling_rate_hz=125):
     """
-    Detect ECG R-peaks with a Pan-Tompkins-inspired pipeline.
+    Detect ECG R-peaks.
 
-    The signal is filtered, differentiated, squared and smoothed with a moving
-    integration window. Candidate QRS regions are detected on the integrated
-    signal, then the final R-peak is placed on the local maximum in the ECG.
+    The steps are based on the Pan-Tompkins idea: make the QRS peaks stand out,
+    find possible peaks, then move each result back onto the real ECG maximum.
     """
     ecg_segment = np.asarray(ecg_segment, dtype=float)
     qrs_signal = _prepare_ecg_qrs_signal(ecg_segment, sampling_rate_hz)
 
-    # A dynamic threshold adapts to the segment amplitude instead of using one
-    # fixed voltage level for all patients.
+    # Use the segment itself to choose the threshold, so we do not need one
+    # fixed voltage value for every patient.
     threshold = np.mean(qrs_signal) + 0.5 * np.std(qrs_signal)
     minimum_distance = int(0.25 * sampling_rate_hz)
 
@@ -39,8 +38,8 @@ def detect_ecg_r_peaks(ecg_segment, sampling_rate_hz=125):
         distance=minimum_distance,
     )
 
-    # The integrated signal can shift the maximum slightly, so candidates are
-    # refined back to the local maximum of the filtered ECG waveform.
+    # The processing can shift the peak a little, so look nearby for the real
+    # maximum in the ECG.
     search_radius = int(0.08 * sampling_rate_hz)
     r_peaks = _refine_to_local_maxima(ecg_segment, candidate_peaks, search_radius)
 
@@ -53,33 +52,29 @@ def detect_ecg_r_peaks(ecg_segment, sampling_rate_hz=125):
 
 def detect_ppg_peaks(ppg_segment, sampling_rate_hz=125):
     """
-    Detect systolic PPG peaks with a small ensemble of simple detectors.
+    Detect systolic PPG peaks.
 
-    The ensemble combines three strategies from the PPG literature:
-    local maxima with adaptive prominence, derivative-based detection and a
-    slope-sum detector. Peaks that are supported by at least two strategies are
-    accepted, then physiological distance rules reduce false positives.
+    PPG shapes vary a lot, so three simple methods are combined. A peak is kept
+    when at least two methods find roughly the same beat.
     """
     ppg_segment = np.asarray(ppg_segment, dtype=float)
 
-    # Normalize before detector voting because PPG amplitudes differ strongly
-    # between patients and recording positions.
+    # Put the segment on a similar scale before comparing detector results.
     normalized_segment = _normalize(ppg_segment)
 
     local_maxima = _detect_ppg_local_maxima(normalized_segment, sampling_rate_hz)
     derivative_peaks = _detect_ppg_derivative_peaks(normalized_segment, sampling_rate_hz)
     slope_sum_peaks = _detect_ppg_slope_sum_peaks(normalized_segment, sampling_rate_hz)
 
-    # A candidate is accepted only if at least two detector styles agree. This
-    # reduces false positives from one method reacting to noise.
+    # Two methods have to agree, otherwise noise from one method could become a
+    # false peak.
     merged_peaks = _majority_vote_peaks(
         [local_maxima, derivative_peaks, slope_sum_peaks],
         tolerance_samples=int(0.12 * sampling_rate_hz),
         required_votes=2,
     )
 
-    # The minimum distance helps prevent the dicrotic notch from being counted
-    # as a second heartbeat.
+    # Prevent the dicrotic notch from being counted as a second heartbeat.
     minimum_distance = int(0.35 * sampling_rate_hz)
     refined_peaks = _refine_to_local_maxima(ppg_segment, merged_peaks, int(0.12 * sampling_rate_hz))
 
@@ -92,13 +87,10 @@ def detect_ppg_peaks(ppg_segment, sampling_rate_hz=125):
 
 def calculate_heart_rate_from_peaks(peaks, sampling_rate_hz=125):
     """
-    The function converts peak values into time intervals, removes
-    unrealistic values and uses these to calculate the average heart
-    rate in bpm.
+    Calculate heart rate from the detected peak positions.
 
-    The mean interval between accepted beats is inverted to obtain beats per
-    minute. Unrealistic intervals are discarded so one false detection has less
-    influence on the final HR estimate.
+    Peak distances give beat intervals. Very short or very long intervals are
+    ignored, because they are usually caused by missed or double peaks.
     """
     peaks = np.asarray(peaks, dtype=int)
 
@@ -144,11 +136,10 @@ def compare_heart_rates(ecg_heart_rate, ppg_heart_rate):
 
 def _prepare_ecg_qrs_signal(ecg_segment, sampling_rate_hz):
     """
-    Build an ECG feature signal that makes QRS complexes easier to detect.
+    Make a helper signal where QRS complexes are easier to find.
 
-    Bandpass filtering keeps QRS frequencies, the derivative highlights steep
-    slopes, squaring makes all slopes positive and the integration window
-    creates a smoother envelope for thresholding.
+    Filtering keeps the QRS band, the derivative highlights steep slopes,
+    squaring removes the sign, and the moving average smooths it.
     """
     settings = ButterworthBandpassSettings(
         low_cut_hz=5.0,
@@ -167,7 +158,7 @@ def _prepare_ecg_qrs_signal(ecg_segment, sampling_rate_hz):
 
 def _detect_ppg_local_maxima(ppg_segment, sampling_rate_hz):
     """
-    Detect PPG peaks using direct local maxima and adaptive prominence.
+    Find obvious local maxima in the PPG signal.
     """
     minimum_distance = int(0.35 * sampling_rate_hz)
     prominence = max(0.15, 0.35 * np.std(ppg_segment))
@@ -183,7 +174,7 @@ def _detect_ppg_local_maxima(ppg_segment, sampling_rate_hz):
 
 def _detect_ppg_derivative_peaks(ppg_segment, sampling_rate_hz):
     """
-    Detect PPG peaks where the first derivative changes from rising to falling.
+    Find points where the signal changes from rising to falling.
     """
     derivative = np.gradient(ppg_segment)
     zero_crossing_candidates = np.where(
@@ -201,10 +192,10 @@ def _detect_ppg_derivative_peaks(ppg_segment, sampling_rate_hz):
 
 def _detect_ppg_slope_sum_peaks(ppg_segment, sampling_rate_hz):
     """
-    Detect PPG pulse upstrokes using a slope-sum style signal.
+    Find PPG beats by looking for strong rising slopes.
 
-    Positive slopes are accumulated in a short window. This highlights the fast
-    rising edge before a systolic peak.
+    The systolic peak usually comes after a fast upward slope, so this catches
+    beats that might be missed by a plain local-maximum search.
     """
     derivative = np.gradient(ppg_segment)
     positive_derivative = np.maximum(derivative, 0.0)
@@ -230,10 +221,10 @@ def _detect_ppg_slope_sum_peaks(ppg_segment, sampling_rate_hz):
 
 def _majority_vote_peaks(peak_sets, tolerance_samples, required_votes):
     """
-    Merge peak candidates from several detectors with a tolerance window.
+    Merge nearby peaks from the different PPG detectors.
 
-    Nearby candidates are treated as the same physiological beat. The final
-    accepted index is the median of the agreeing candidates.
+    If enough detectors point to the same area, that area is accepted as one
+    beat.
     """
     all_peaks = np.sort(np.concatenate([np.asarray(peaks, dtype=int) for peaks in peak_sets]))
     if all_peaks.size == 0:
@@ -261,11 +252,7 @@ def _majority_vote_peaks(peak_sets, tolerance_samples, required_votes):
 
 def _count_peak_set_votes(close_peaks, peak_sets, tolerance_samples):
     """
-    Count how many detection methods support a group of nearby peaks.
-
-    Each method gets at most one vote if it has at least one peak within
-    tolerance_samples of any peak in close_peaks. This is used for ensemble
-    voting, where a peak is accepted only if enough methods agree.
+    Count how many detector methods agree with a peak group.
     """
     vote_count = 0
 
@@ -282,12 +269,7 @@ def _count_peak_set_votes(close_peaks, peak_sets, tolerance_samples):
 
 def _refine_to_local_maxima(signal_segment, candidate_peaks, search_radius):
     """
-    Refine candidate peaks by aligning them to the nearest local maxima.
-
-    For each candidate peak, a local window is defined around its position.
-    The function then searches within this window for the maximum value in the
-    original signal and updates the peak location accordingly.
-
+    Move rough peak positions onto the highest point nearby.
     """
     signal_segment = np.asarray(signal_segment, dtype=float)
     refined_peaks = []
@@ -307,12 +289,9 @@ def _refine_to_local_maxima(signal_segment, candidate_peaks, search_radius):
 
 def _remove_close_peaks(signal_segment, peaks, minimum_distance):
     """
-    Remove peaks that are too close to each other and keep only the most prominent ones.
+    Remove peaks that are unrealistically close together.
 
-    Peaks are first sorted and deduplicated. The function then iterates through
-    the peaks and enforces a minimum distance between consecutive peaks. If two
-    peaks are closer than the specified minimum distance, only the peak with the
-    higher signal amplitude is retained.
+    When two peaks are too close, the one with the higher amplitude is kept.
     """
 
     peaks = np.asarray(sorted(set(np.asarray(peaks, dtype=int))), dtype=int)
@@ -336,13 +315,10 @@ def _remove_close_peaks(signal_segment, peaks, minimum_distance):
 
 def _normalize(signal_segment):
     """
-        Normalize a signal segment using z-score normalization.
+    Normalize a segment with z-score scaling.
 
-        The signal is centered by subtracting its mean and scaled by its
-        standard deviation, resulting in a signal with approximately zero mean
-        and unit variance. If the standard deviation is zero, only mean-centering
-        is applied to avoid division by zero.
-        """
+    If the signal is flat, only subtract the mean to avoid division by zero.
+    """
     signal_segment = np.asarray(signal_segment, dtype=float)
     standard_deviation = np.std(signal_segment)
 
