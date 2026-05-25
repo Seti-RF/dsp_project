@@ -22,13 +22,8 @@ def has_motion_artifact(segment, z_threshold=20.0, max_spike_ratio=0.01):
     """
     Detect likely motion artifacts in one segment.
 
-    Args:
-        segment: One ECG or PPG segment with shape (samples,).
-        z_threshold: Absolute robust z-score above which a sample is a spike.
-        max_spike_ratio: Maximum allowed fraction of spike samples.
-
-    Returns:
-        True if the segment likely contains too many motion spikes.
+    A segment is flagged when too many samples are extreme outliers according to
+    the robust z-score. This warns the user without removing them
     """
     z_scores = np.abs(robust_z_score(segment))
     spike_ratio = np.mean(z_scores > z_threshold)
@@ -40,13 +35,8 @@ def find_artifact_segments(signal_data, z_threshold=20.0, max_spike_ratio=0.01):
     """
     Return indexes of segments that likely contain motion artifacts.
 
-    Args:
-        signal_data: Signal array with shape (segments, samples).
-        z_threshold: Absolute robust z-score above which a sample is a spike.
-        max_spike_ratio: Maximum allowed fraction of spike samples.
-
-    Returns:
-        List of segment indexes flagged as artifact-heavy.
+    The GUI uses this list to summarize possible artifact-heavy windows after
+    loading a recording.
     """
     bad_segments = []
 

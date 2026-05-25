@@ -22,26 +22,17 @@ class FrequencyDomainPlotter:
         output_path=None,
     ):
         """
-        Plot the frequency spectrum for one raw signal segment.
+        Show which frequency components are present in a raw segment.
 
-        Args:
-            signal_data: Signal array with shape (segments, samples).
-            signal_name: Signal label, for example "ECG" or "PPG".
-            patient_id: Patient identifier, for example "p000188".
-            segment_index: Segment number to plot.
-            max_frequency_hz: Optional upper x-axis limit in Hz.
-            output_path: Optional file path where the plot is saved.
-
-        Returns:
-            The matplotlib Figure object containing the frequency-domain plot.
+        This is mainly used during preprocessing checks: a strong low-frequency
+        component points to baseline drift, while a narrow peak around 50/60 Hz
+        would suggest powerline noise.
         """
         if segment_index < 0 or segment_index >= signal_data.shape[0]:
             raise IndexError(
                 f"segment_index {segment_index} is outside available range 0-{signal_data.shape[0] - 1}"
             )
 
-
-        # Hetzelfde al de tijdsdomein maar dan met de fft toegepast
         signal_segment = signal_data[segment_index]
         frequencies, magnitude = self._fft_magnitude(signal_segment)
 
@@ -73,19 +64,10 @@ class FrequencyDomainPlotter:
         output_path=None,
     ):
         """
-        Plot raw and filtered signal spectra for one segment.
+        Compare the spectrum before and after filtering.
 
-        Args:
-            raw_signal: Raw signal array with shape (segments, samples).
-            filtered_signal: Filtered signal array with the same shape.
-            signal_name: Signal label, for example "ECG" or "PPG".
-            patient_id: Patient identifier, for example "p000188".
-            segment_index: Segment number to plot.
-            max_frequency_hz: Optional upper x-axis limit in Hz.
-            output_path: Optional file path where the plot is saved.
-
-        Returns:
-            The matplotlib Figure object containing the frequency-domain plot.
+        If the preprocessing is working, unwanted frequency content should be
+        reduced in the filtered curve while the physiological band remains.
         """
         if raw_signal.shape != filtered_signal.shape:
             raise ValueError("raw_signal and filtered_signal must have the same shape")
@@ -125,6 +107,12 @@ class FrequencyDomainPlotter:
         return figure
 
     def _fft_magnitude(self, signal_segment):
+        """
+        Return positive FFT frequencies and normalized magnitudes.
+
+        rfft is used because ECG/PPG signals are real-valued. Subtracting the
+        mean removes the DC offset so the zero-frequency bin does not dominate.
+        """
         centered_segment = np.asarray(signal_segment, dtype=float)
         centered_segment = centered_segment - np.mean(centered_segment)
         frequencies = np.fft.rfftfreq(
@@ -144,21 +132,10 @@ def plot_synchronized_ecg_ppg(
     output_path=None,
 ):
     """
-    Plot synchronized ECG and PPG signals for one patient segment.
+    Plot ECG and PPG on the same time axis for visual inspection.
 
-    Args:
-        ecg: ECG signal array with shape (segments, samples).
-        ppg: PPG signal array with shape (segments, samples).
-        patient_id: Patient identifier, for example "p000188".
-        segment_index: Segment number to plot.
-        sampling_rate_hz: Sampling rate used to convert samples to seconds.
-        output_path: Optional file path where the plot is saved.
-
-    Returns:
-        The matplotlib Figure object containing the synchronized plot.
-
-    Raises:
-        IndexError: If segment_index is outside the available segment range.
+    The two signals are measured over the same segment, so plotting them with a
+    shared x-axis makes it easier to compare beat timing and signal quality.
     """
     if segment_index < 0 or segment_index >= ecg.shape[0]:
         raise IndexError(
@@ -206,19 +183,10 @@ def plot_detected_peaks(
     output_path=None,
 ):
     """
-    Plot one signal segment with detected peaks marked.
+    Plot a segment and mark the detected beat locations.
 
-    Args:
-        signal_data: Signal array with shape (segments, samples).
-        peaks: Detected peak sample indexes for the selected segment.
-        signal_name: Signal label, for example "ECG" or "PPG".
-        patient_id: Patient identifier, for example "p000188".
-        segment_index: Segment number to plot.
-        sampling_rate_hz: Sampling rate used to convert samples to seconds.
-        output_path: Optional file path where the plot is saved.
-
-    Returns:
-        The matplotlib Figure object containing the peak plot.
+    This is the main visual check for peak detection. Correct markers should sit
+    on ECG R-peaks or PPG systolic peaks, not on noise or secondary waves.
     """
     if segment_index < 0 or segment_index >= signal_data.shape[0]:
         raise IndexError(
@@ -263,19 +231,10 @@ def plot_pre_post_filter(
     output_path=None,
 ):
     """
-    Plot one raw segment above its filtered version.
+    Show the time-domain effect of preprocessing on one segment.
 
-    Args:
-        raw_signal: Raw signal array with shape (segments, samples).
-        filtered_signal: Filtered signal array with the same shape.
-        signal_name: Signal label, for example "ECG" or "PPG".
-        patient_id: Patient identifier, for example "p000188".
-        segment_index: Segment number to plot.
-        sampling_rate_hz: Sampling rate used to convert samples to seconds.
-        output_path: Optional file path where the plot is saved.
-
-    Returns:
-        The matplotlib Figure object containing the comparison plot.
+    The raw trace keeps the original waveform, while the filtered trace should
+    have less drift and noise without destroying the peaks used later.
     """
     if raw_signal.shape != filtered_signal.shape:
         raise ValueError("raw_signal and filtered_signal must have the same shape")

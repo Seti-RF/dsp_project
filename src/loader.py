@@ -10,16 +10,11 @@ def load_patient(patient_id, data_path=None):
     """
     Load all available signals and labels for one patient.
 
-    Args:
-        patient_id: Patient identifier, for example "p000188".
-        data_path: Optional path to the dataset root. When omitted, the
-            project-level data directory is used.
+    The dataset stores each modality in a separate folder but uses the same
+    patient id in every filename. This function gathers the four arrays so older
+    backend scripts can work from a single call.
 
-    Returns:
-        A tuple containing ECG, PPG, ABP and labels arrays.
-
-    Raises:
-        FileNotFoundError: If one of the patient files is missing.
+    NOTE: WE LOAD THE ECG AND THE PPG FILE SEPARATELY
     """
     data_dir = Path(data_path) if data_path is not None else PROJECT_ROOT / "data"
 

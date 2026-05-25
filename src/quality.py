@@ -127,6 +127,12 @@ def _calculate_peak_based_sqi(
     sampling_rate_hz,
     metric_weights,
 ):
+    """
+    Combine interval, amplitude and noise scores into one SQI value.
+
+    ECG and PPG use the same three ingredients but different weights. This keeps
+    the code consistent while allowing PPG to penalize noise slightly more.
+    """
     interval_score = interval_regularity_score(peaks, sampling_rate_hz)
     amplitude_score = amplitude_stability_score(signal_segment, peaks)
     noise_score = noise_level_score(signal_segment)
@@ -147,6 +153,12 @@ def _calculate_peak_based_sqi(
 
 
 def _score_from_coefficient_of_variation(coefficient_of_variation):
+    """
+    Convert relative variation into a bounded 0-1 quality score.
+
+    A coefficient of variation near zero means the values are stable, so the
+    score is near 1. Larger variation moves the score toward 0.
+    """
     if not np.isfinite(coefficient_of_variation):
         return 0.0
 

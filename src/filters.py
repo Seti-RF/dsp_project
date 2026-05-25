@@ -10,8 +10,8 @@ class ButterworthBandpassSettings:
     Settings for one Butterworth bandpass filter.
 
     The lower cutoff removes baseline wander. The upper cutoff removes
-    high-frequency noise, including powerline interference when it is above the
-    selected physiological bandwidth.
+    high-frequency noise
+
     """
 
     low_cut_hz: float
@@ -25,7 +25,11 @@ ECG_BUTTERWORTH_SETTINGS = ButterworthBandpassSettings(
     high_cut_hz=20.0,
 )
 
+
+# PPG pulses are slower than ECG QRS complexes, but real systolic peaks can be
+# sharp. The 8 Hz upper cutoff keeps those peaks better than a very narrow band.
 PPG_BUTTERWORTH_SETTINGS = ButterworthBandpassSettings(
+    # Had the high cutoff initially at 5 Hz but the peak detection got messed up so upped it to 8 Hz
     low_cut_hz=0.5,
     high_cut_hz=8.0,
     order=2,
@@ -36,14 +40,15 @@ def butterworth_bandpass(data, settings):
     """
     Apply a zero-phase Butterworth bandpass filter.
 
-    Args:
-        data: Signal array with shape (samples,) or (segments, samples).
-        settings: Butterworth filter settings.
-
-    Returns:
-        Filtered signal with the same shape as the input.
+    The filter removes frequencies outside the physiological band.
+    Zero-phase filtering is important here because peak timing is used later for
+    HR and HRV; a normal causal filter would shift the peaks in time.
+    The filter used is defined in a library!
     """
     _validate_settings(settings)
+
+    # Use second-order sections instead of one high-order transfer function.
+    # This is numerically more stable for digital filtering.
     sos = signal.butter(
         settings.order,
         [settings.low_cut_hz, settings.high_cut_hz],
@@ -51,6 +56,9 @@ def butterworth_bandpass(data, settings):
         fs=settings.sampling_rate_hz,
         output="sos",
     )
+
+    # filtfilt applies the filter forward and backward. This avoids phase delay,
+    # which matters because peak timing is used later for HR and HRV.
     return signal.sosfiltfilt(sos, np.asarray(data, dtype=float), axis=-1)
 
 
@@ -87,6 +95,9 @@ def preprocess_ppg(ppg, sampling_rate_hz=125.0):
 
 
 def _validate_settings(settings):
+    """
+    Validate cutoff settings before scipy designs the digital filter.
+    """
     if settings.order < 1:
         raise ValueError("Butterworth filter order must be at least 1")
     if settings.low_cut_hz <= 0:

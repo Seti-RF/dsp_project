@@ -30,9 +30,7 @@ class HrvMetrics:
 
 @dataclass(frozen=True)
 class SegmentHrvResult:
-    """
-    Session 5 HR and HRV result for one ECG/PPG segment pair.
-    """
+
 
     segment_index: int
     ecg_peak_count: int
@@ -61,7 +59,12 @@ def peaks_to_intervals_seconds(
     if peaks.size < 2:
         return np.array([], dtype=float)
 
+    # Consecutive peak distances in samples become seconds by dividing by the
+    # sampling frequency.
     intervals_seconds = np.diff(peaks) / float(sampling_rate_hz)
+
+    # Remove intervals outside a broad physiological range. This reduces the
+    # effect of missed peaks or false double detections.
     valid_mask = (
         np.isfinite(intervals_seconds)
         & (intervals_seconds >= min_interval_seconds)
@@ -75,6 +78,8 @@ def calculate_hrv_metrics(intervals_seconds):
     Calculate basic time-domain HRV metrics from one interval series.
     """
     intervals_seconds = np.asarray(intervals_seconds, dtype=float)
+
+    # HRV formulas only make sense for positive finite beat intervals.
     intervals_seconds = intervals_seconds[
         np.isfinite(intervals_seconds) & (intervals_seconds > 0.0)
     ]
@@ -92,13 +97,17 @@ def calculate_hrv_metrics(intervals_seconds):
 
     sdnn_seconds = float("nan")
     if intervals_seconds.size >= 2:
+        # SDNN is the standard deviation of normal-to-normal intervals.
         sdnn_seconds = float(np.std(intervals_seconds, ddof=1))
 
     rmssd_seconds = float("nan")
     pnn50_percent = float("nan")
     if successive_differences.size >= 1:
+        # RMSSD emphasizes short-term beat-to-beat variability.
         squared_differences = successive_differences**2
         rmssd_seconds = float(np.sqrt(np.mean(squared_differences)))
+
+        # pNN50 counts how often adjacent intervals differ by more than 50 ms.
         pnn50_percent = float(
             100.0 * np.mean(np.abs(successive_differences) > 0.05)
         )
@@ -114,7 +123,7 @@ def calculate_hrv_metrics(intervals_seconds):
 
 def analyze_hrv(filtered_ecg, filtered_ppg, sampling_rate_hz=125):
     """
-    Calculate Session 5 HR and HRV results for all segments.
+    Calculate HR and HRV results for all segments.
     """
     if filtered_ecg.shape != filtered_ppg.shape:
         raise ValueError("filtered_ecg and filtered_ppg must have the same shape")
@@ -140,7 +149,7 @@ def analyze_segment_hrv(
     sampling_rate_hz=125,
 ):
     """
-    Calculate Session 5 HR and HRV results for one segment pair.
+    Calculate HR and HRV results for one segment pair.
     """
     ecg_peaks = detect_ecg_r_peaks(ecg_segment, sampling_rate_hz=sampling_rate_hz)
     ppg_peaks = detect_ppg_peaks(ppg_segment, sampling_rate_hz=sampling_rate_hz)
@@ -231,6 +240,8 @@ def calculate_fused_intervals(
     ecg_valid = ecg_intervals_seconds.size > 0
     ppg_valid = ppg_intervals_seconds.size > 0
 
+    # Weighted fusion only makes sense when both series have nearly the same
+    # number of beat intervals. Otherwise the beats are probably not aligned.
     if ecg_valid and ppg_valid and abs(ecg_intervals_seconds.size - ppg_intervals_seconds.size) <= 1:
         aligned_count = min(ecg_intervals_seconds.size, ppg_intervals_seconds.size)
         fused_intervals_seconds = (
@@ -336,6 +347,9 @@ def save_hrv_results_csv(results, output_path):
 
 
 def _format_float(value):
+    """
+    Keep CSV output readable by writing invalid numeric values as empty cells.
+    """
     if not np.isfinite(value):
         return ""
 

@@ -15,9 +15,7 @@ from quality import calculate_ecg_sqi, calculate_ppg_sqi
 
 @dataclass(frozen=True)
 class SegmentFusionResult:
-    """
-    Session 4 quality and fused heart-rate result for one segment.
-    """
+
 
     segment_index: int
     ecg_peak_count: int
@@ -85,6 +83,9 @@ def analyze_segment_quality_and_fusion(
         sampling_rate_hz=sampling_rate_hz,
     )
 
+    # The quality weights decide how strongly ECG and PPG contribute to the
+    # final fused HR. If one signal is invalid, the other can still carry the
+    # estimate.
     ecg_weight, ppg_weight = calculate_sqi_weights(
         ecg_sqi=ecg_sqi.overall_score,
         ppg_sqi=ppg_sqi.overall_score,
@@ -128,6 +129,8 @@ def calculate_sqi_weights(
     ecg_valid = np.isfinite(ecg_heart_rate_bpm)
     ppg_valid = np.isfinite(ppg_heart_rate_bpm)
 
+    # If only one modality has a usable HR, fusion should not dilute it with
+    # an invalid value from the other modality.
     if ecg_valid and not ppg_valid:
         return 1.0, 0.0
     if ppg_valid and not ecg_valid:
@@ -140,6 +143,8 @@ def calculate_sqi_weights(
     score_sum = ecg_score + ppg_score
 
     if score_sum == 0:
+        # Both signals are valid but both SQI scores are zero. Equal weights are
+        # the least biased fallback.
         return 0.5, 0.5
 
     return ecg_score / score_sum, ppg_score / score_sum
@@ -157,6 +162,8 @@ def calculate_fused_heart_rate(
     if ecg_weight == 0 and ppg_weight == 0:
         return float("nan")
 
+    # Invalid HR values are replaced by zero only after their weights have been
+    # set to zero by calculate_sqi_weights.
     ecg_value = 0.0 if not np.isfinite(ecg_heart_rate_bpm) else ecg_heart_rate_bpm
     ppg_value = 0.0 if not np.isfinite(ppg_heart_rate_bpm) else ppg_heart_rate_bpm
 
@@ -165,7 +172,7 @@ def calculate_fused_heart_rate(
 
 def save_fusion_results_csv(results, output_path):
     """
-    Save Session 4 per-segment quality and fused HR values to CSV.
+    Save per-segment quality and fused HR values to CSV.
     """
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -206,6 +213,9 @@ def save_fusion_results_csv(results, output_path):
 
 
 def _format_float(value):
+    """
+    Keep CSV output readable by writing invalid numeric values as empty cells.
+    """
     if not np.isfinite(value):
         return ""
 

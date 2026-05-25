@@ -53,7 +53,7 @@ def list_patient_ids(data_path=None):
 
 def run_app_analysis(patient_id, data_path=None, sampling_rate_hz=125):
     """
-    Run the final Roadmap v2 backend pipeline for one patient.
+    Run the final backend pipeline for one patient.
 
     The app needs one stable function that performs all analysis steps:
     load data, preprocess, calculate HR/SQI/fusion and calculate HRV.
@@ -86,7 +86,7 @@ def run_app_analysis_from_files(ecg_path, ppg_path, sampling_rate_hz=125):
 
 def run_app_analysis_from_arrays(patient_id, ecg, ppg, sampling_rate_hz=125):
     """
-    Run the final Roadmap v2 backend pipeline for loaded ECG and PPG arrays.
+    Run the backend pipeline for loaded ECG and PPG arrays.
     """
     ecg = _normalize_signal_array(ecg, "ECG")
     ppg = _normalize_signal_array(ppg, "PPG")
@@ -213,6 +213,12 @@ def _project_root():
 
 
 def _normalize_signal_array(signal, signal_name):
+    """
+    Accept both one-segment and multi-segment arrays.
+
+    A 1D signal is reshaped to (1, samples), so the rest of the pipeline can
+    always loop over the first axis as the segment axis.
+    """
     signal = np.asarray(signal)
     if signal.ndim == 1:
         return signal.reshape(1, -1)
@@ -224,6 +230,9 @@ def _normalize_signal_array(signal, signal_name):
 
 
 def _format_float(value):
+    """
+    Keep CSV output readable by writing invalid numeric values as empty cells.
+    """
     if not np.isfinite(value):
         return ""
     return f"{value:.4f}"

@@ -19,6 +19,9 @@ from plotter import (
     plot_synchronized_ecg_ppg,
 )
 
+"""
+This script was to test our implementations
+"""
 PATIENT_ID = "p000188"
 SEGMENT_INDEX = 23
 SAMPLING_RATE_HZ = 125
